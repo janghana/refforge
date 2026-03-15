@@ -4,7 +4,19 @@
 
 Paste paper references line by line and instantly convert them to BibTeX (`.bib`) or Numbered (`[1]...`) format.
 
-**🔗 [Live Demo →](https://refforge.vercel.app)**
+<div align="center">
+<br>
+
+### ⚡ Ready to use — no setup needed
+
+<a href="https://refforge.vercel.app">
+<img src="https://img.shields.io/badge/Try%20RefForge-blue?style=for-the-badge&logo=vercel&logoColor=white" alt="Try RefForge" height="40">
+</a>
+
+<br>
+<sub>Free to use · No sign-up · No API key required</sub>
+<br><br>
+</div>
 
 ---
 
