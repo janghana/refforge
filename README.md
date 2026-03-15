@@ -25,10 +25,7 @@ Paste paper references line by line and instantly convert them to BibTeX (`.bib`
 
 ## Screenshot
 
-<!-- Replace with your own screenshot: take a screenshot of RefForge in action and save as docs/screenshot.png -->
-<!-- ![RefForge Screenshot](docs/screenshot.png) -->
-
-> Take a screenshot of RefForge with a few papers loaded and replace the comment above to showcase the UI.
+![RefForge Screenshot](docs/screenshot.png)
 
 ## Features
 
