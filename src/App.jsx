@@ -157,6 +157,7 @@ export default function App() {
   const [mode, setMode] = useState('bib')
   const [copied, setCopied] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [errors, setErrors] = useState({})
 
   // Load from localStorage
   useEffect(() => {
@@ -191,6 +192,7 @@ export default function App() {
     const cls = lines.map(l => classify(l))
     setTypes(cls.map(c => c.type))
     setStatuses(lines.map(() => 'pending'))
+    setErrors({})
     let added = 0
     for (let i = 0; i < lines.length; i++) {
       setStatuses(p => p.map((s, j) => j === i ? 'loading' : s))
@@ -205,6 +207,7 @@ export default function App() {
         refresh()
       } catch (err) {
         setStatuses(p => p.map((s, j) => j === i ? 'error' : s))
+        setErrors(prev => ({ ...prev, [i]: err.message || 'Unknown error' }))
       }
       if (i < lines.length - 1) await new Promise(r => setTimeout(r, 500))
     }
@@ -290,16 +293,28 @@ export default function App() {
                 <div style={{ height: 2, background: '#e2e8f0', borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
                   <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg,#3b82f6,#22c55e)', transition: 'width 0.5s ease', width: `${((sN + eN) / statuses.length) * 100}%` }} />
                 </div>
-                <div style={{ maxHeight: 140, overflowY: 'auto' }}>
+                <div style={{ maxHeight: 180, overflowY: 'auto' }}>
                   {entries.map((line, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', borderRadius: 4, background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
-                      <span className="mono" style={{ fontSize: 9, color: '#cbd5e1', minWidth: 16, textAlign: 'right' }}>{i + 1}</span>
-                      <StatusIcon status={statuses[i]} />
-                      <TypeBadge type={types[i] || 'title'} />
-                      <span className="mono" style={{ fontSize: 10.5, flex: 1, color: statuses[i] === 'error' ? '#dc2626' : statuses[i] === 'done' ? '#15803d' : '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line}</span>
+                    <div key={i} style={{ padding: '3px 6px', borderRadius: 4, background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="mono" style={{ fontSize: 9, color: '#cbd5e1', minWidth: 16, textAlign: 'right' }}>{i + 1}</span>
+                        <StatusIcon status={statuses[i]} />
+                        <TypeBadge type={types[i] || 'title'} />
+                        <span className="mono" style={{ fontSize: 10.5, flex: 1, color: statuses[i] === 'error' ? '#dc2626' : statuses[i] === 'done' ? '#15803d' : '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line}</span>
+                      </div>
+                      {statuses[i] === 'error' && errors[i] && (
+                        <div style={{ marginLeft: 28, marginTop: 2, fontSize: 9.5, color: '#ef4444', background: '#fef2f2', padding: '3px 8px', borderRadius: 4, border: '1px solid #fecaca' }}>
+                          {errors[i]}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+                {eN > 0 && !processing && (
+                  <button onClick={run} style={{ marginTop: 8, padding: '5px 14px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                    ↻ Retry failed ({eN})
+                  </button>
+                )}
               </div>
             )}
 

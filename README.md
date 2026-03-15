@@ -1,5 +1,8 @@
 # 📎 RefForge
 
+[![CI](https://github.com/janghana/refforge/actions/workflows/ci.yml/badge.svg)](https://github.com/janghana/refforge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > DOI · arXiv · Paper Title → BibTeX & Numbered References
 
 Paste paper references line by line and instantly convert them to BibTeX (`.bib`) or Numbered (`[1]...`) format.
@@ -19,6 +22,13 @@ Paste paper references line by line and instantly convert them to BibTeX (`.bib`
 </div>
 
 ---
+
+## Screenshot
+
+<!-- Replace with your own screenshot: take a screenshot of RefForge in action and save as docs/screenshot.png -->
+<!-- ![RefForge Screenshot](docs/screenshot.png) -->
+
+> Take a screenshot of RefForge with a few papers loaded and replace the comment above to showcase the UI.
 
 ## Features
 
