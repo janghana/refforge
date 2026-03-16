@@ -6,27 +6,35 @@ import './index.css'
 // ═══ Storage Status Badge ═══
 function StorageBadge({ storageInfo, onConnect, onDisconnect }) {
   const isFS = storageInfo.mode === 'filesystem'
+  const isIDB = storageInfo.mode === 'indexedDB'
+  const statusColor = isFS ? '#22c55e' : isIDB ? '#3b82f6' : '#f59e0b'
+  const statusTextColor = isFS ? '#15803d' : isIDB ? '#1d4ed8' : '#92400e'
+  const statusLabel = isFS ? `Local: ${storageInfo.folderName}` : isIDB ? 'Auto-saved (IndexedDB)' : 'Browser Storage'
+
   return (
     <div style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: isFS ? '#22c55e' : '#f59e0b', display: 'inline-block' }} />
-        <span style={{ fontSize: 10, fontWeight: 600, color: isFS ? '#15803d' : '#92400e' }}>
-          {isFS ? `Local: ${storageInfo.folderName}` : 'Browser Storage'}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: isFS || storageInfo.supported ? 6 : 0 }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, display: 'inline-block' }} />
+        <span style={{ fontSize: 10, fontWeight: 600, color: statusTextColor }}>{statusLabel}</span>
       </div>
+      {isIDB && !isFS && (
+        <div style={{ fontSize: 9, color: '#64748b', marginBottom: storageInfo.supported ? 6 : 0, lineHeight: 1.3, background: '#eff6ff', padding: '4px 8px', borderRadius: 4 }}>
+          Data is automatically saved and persists across sessions.
+        </div>
+      )}
       {isFS ? (
         <button onClick={onDisconnect} style={{ width: '100%', padding: '4px 8px', background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
           Disconnect folder
         </button>
-      ) : (
-        <button onClick={onConnect} style={{ width: '100%', padding: '5px 8px', background: storageInfo.supported ? 'linear-gradient(135deg,#059669,#10b981)' : '#e2e8f0', color: storageInfo.supported ? 'white' : '#94a3b8', border: 'none', borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: storageInfo.supported ? 'pointer' : 'default', fontFamily: 'inherit', boxShadow: storageInfo.supported ? '0 1px 4px rgba(5,150,105,0.2)' : 'none' }}
-          disabled={!storageInfo.supported} title={storageInfo.supported ? 'Select a local folder to save projects' : 'File System Access API not supported in this browser (use Chrome or Edge)'}>
-          {storageInfo.supported ? '📁 Connect Local Folder' : 'Not supported in this browser'}
+      ) : storageInfo.supported ? (
+        <button onClick={onConnect} style={{ width: '100%', padding: '5px 8px', background: 'linear-gradient(135deg,#059669,#10b981)', color: 'white', border: 'none', borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 1px 4px rgba(5,150,105,0.2)', marginTop: 4 }}
+          title="Additionally save to a local folder for extra backup">
+          + Connect Local Folder
         </button>
-      )}
+      ) : null}
       {!isFS && storageInfo.supported && (
-        <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 4, lineHeight: 1.3 }}>
-          Connect a folder to save projects as files on your computer. Safe from browser cache clearing.
+        <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 3, lineHeight: 1.3 }}>
+          Optional: connect a folder for additional file backup.
         </div>
       )}
     </div>
