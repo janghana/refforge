@@ -3,6 +3,36 @@ import { classify, fetchByDOI, fetchByArxiv, fetchByTitle, formatBib, formatNumb
 import * as store from './store'
 import './index.css'
 
+// ═══ Storage Status Badge ═══
+function StorageBadge({ storageInfo, onConnect, onDisconnect }) {
+  const isFS = storageInfo.mode === 'filesystem'
+  return (
+    <div style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: isFS ? '#22c55e' : '#f59e0b', display: 'inline-block' }} />
+        <span style={{ fontSize: 10, fontWeight: 600, color: isFS ? '#15803d' : '#92400e' }}>
+          {isFS ? `Local: ${storageInfo.folderName}` : 'Browser Storage'}
+        </span>
+      </div>
+      {isFS ? (
+        <button onClick={onDisconnect} style={{ width: '100%', padding: '4px 8px', background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Disconnect folder
+        </button>
+      ) : (
+        <button onClick={onConnect} style={{ width: '100%', padding: '5px 8px', background: storageInfo.supported ? 'linear-gradient(135deg,#059669,#10b981)' : '#e2e8f0', color: storageInfo.supported ? 'white' : '#94a3b8', border: 'none', borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: storageInfo.supported ? 'pointer' : 'default', fontFamily: 'inherit', boxShadow: storageInfo.supported ? '0 1px 4px rgba(5,150,105,0.2)' : 'none' }}
+          disabled={!storageInfo.supported} title={storageInfo.supported ? 'Select a local folder to save projects' : 'File System Access API not supported in this browser (use Chrome or Edge)'}>
+          {storageInfo.supported ? '📁 Connect Local Folder' : 'Not supported in this browser'}
+        </button>
+      )}
+      {!isFS && storageInfo.supported && (
+        <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 4, lineHeight: 1.3 }}>
+          Connect a folder to save projects as files on your computer. Safe from browser cache clearing.
+        </div>
+      )}
+    </div>
+  )
+}
+
 const PLACEHOLDER = `e.g.,
 10.1016/j.media.2024.103064
 1706.03762
@@ -23,7 +53,7 @@ const StatusIcon = ({ status }) => {
 }
 
 // ═══ Sidebar ═══
-function Sidebar({ projects, activeId, onSelect, onCreate, onDelete, onRename }) {
+function Sidebar({ projects, activeId, onSelect, onCreate, onDelete, onRename, storageInfo, onConnectFolder, onDisconnectFolder }) {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -46,6 +76,9 @@ function Sidebar({ projects, activeId, onSelect, onCreate, onDelete, onRename })
           + New Project
         </button>
       </div>
+
+      {/* Storage connection */}
+      <StorageBadge storageInfo={storageInfo} onConnect={onConnectFolder} onDisconnect={onDisconnectFolder} />
 
       {/* New project input */}
       {creating && (
@@ -104,8 +137,47 @@ function Sidebar({ projects, activeId, onSelect, onCreate, onDelete, onRename })
           )
         })}
       </div>
-      {/* Clear cache button */}
-      <div style={{ padding: '8px 14px', borderTop: '1px solid #e2e8f0' }}>
+      {/* Export / Import / Clear */}
+      <div style={{ padding: '8px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <button onClick={() => {
+          const data = JSON.stringify({ projects: import('./store').then ? undefined : null }, null, 2)
+          import('./store').then(s => {
+            const exp = { projects: s.getProjects(), exportedAt: new Date().toISOString() }
+            const a = document.createElement('a')
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(exp, null, 2)], { type: 'application/json' }))
+            a.download = `refforge-backup-${new Date().toISOString().slice(0,10)}.json`
+            a.click()
+          })
+        }} style={{ width: '100%', padding: '5px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 5, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+          ↓ Export projects
+        </button>
+        <button onClick={() => {
+          const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json'
+          inp.onchange = e => {
+            const f = e.target.files[0]; if (!f) return
+            const r = new FileReader()
+            r.onload = ev => {
+              try {
+                const data = JSON.parse(ev.target.result)
+                if (!data.projects) { alert('Invalid backup file'); return }
+                import('./store').then(s => {
+                  const existing = s.getProjects()
+                  let imported = 0
+                  data.projects.forEach(proj => {
+                    const dup = existing.find(p => p.name === proj.name)
+                    if (!dup) { s.createProject(proj.name); const ps = s.getProjects(); const newP = ps[ps.length - 1]; proj.papers?.forEach(paper => s.addPaperToProject(newP.id, paper)); imported++ }
+                  })
+                  alert(`Imported ${imported} project(s). Refresh to see changes.`)
+                  window.location.reload()
+                })
+              } catch { alert('Failed to parse backup file') }
+            }
+            r.readAsText(f)
+          }
+          inp.click()
+        }} style={{ width: '100%', padding: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: 5, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+          ↑ Import projects
+        </button>
         <button onClick={() => { if (confirm('Clear all API cache?')) { import('./store').then(s => { s.clearAllCache(); alert('Cache cleared. Re-add papers to fetch fresh data.') }) } }}
           style={{ width: '100%', padding: '5px', background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
           Clear cache
@@ -158,14 +230,41 @@ export default function App() {
   const [copied, setCopied] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [errors, setErrors] = useState({})
+  const [storageInfo, setStorageInfo] = useState({ mode: 'localStorage', folderName: null, supported: false })
 
-  // Load from localStorage
+  // Initialize: try reconnecting to previously selected folder, then load data
   useEffect(() => {
-    setProjects(store.getProjects())
-    setActiveId(store.getActiveId())
+    async function init() {
+      // Try to reconnect to previously selected folder
+      await store.reconnectDirectory()
+      // Load all data (from FS if connected, else localStorage)
+      await store.loadAll()
+      await store.loadCacheFromFS()
+      // Update UI
+      setProjects(store.getProjects())
+      setActiveId(store.getActiveId())
+      setStorageInfo(store.getStorageInfo())
+    }
+    init()
   }, [])
 
-  const refresh = () => { setProjects(store.getProjects()); setActiveId(store.getActiveId()) }
+  const refresh = () => { setProjects(store.getProjects()); setActiveId(store.getActiveId()); setStorageInfo(store.getStorageInfo()) }
+
+  const handleConnectFolder = async () => {
+    const ok = await store.pickDirectory()
+    if (ok) {
+      await store.loadAll()
+      await store.loadCacheFromFS()
+      refresh()
+    }
+  }
+
+  const handleDisconnectFolder = async () => {
+    if (confirm('Disconnect local folder? Data will still be saved in browser storage.')) {
+      await store.disconnectDirectory()
+      refresh()
+    }
+  }
   const activeProject = projects.find(p => p.id === activeId) || null
   const papers = activeProject?.papers || []
   const valid = papers.filter(r => !r.error)
@@ -227,7 +326,7 @@ export default function App() {
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'IBM Plex Sans',-apple-system,sans-serif" }}>
       {/* ═══ SIDEBAR ═══ */}
-      <Sidebar projects={projects} activeId={activeId} onSelect={selectProject} onCreate={createProject} onDelete={deleteProject} onRename={renameProject} />
+      <Sidebar projects={projects} activeId={activeId} onSelect={selectProject} onCreate={createProject} onDelete={deleteProject} onRename={renameProject} storageInfo={storageInfo} onConnectFolder={handleConnectFolder} onDisconnectFolder={handleDisconnectFolder} />
 
       {/* ═══ CENTER ═══ */}
       <div style={{ flex: 5, display: 'flex', flexDirection: 'column', gap: 12, padding: '20px 18px', overflowY: 'auto', background: 'linear-gradient(180deg, #f0f5ff 0%, #f8fafc 100%)' }}>
