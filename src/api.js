@@ -322,8 +322,65 @@ export async function fetchByTitle(title) {
   cachePaper(cacheId, ref); return ref
 }
 
+// ═══ Author Helpers ═══
+function _authorList(authors, style = 'full') {
+  if (!authors) return ''
+  const list = authors.split(', ').map(a => a.trim()).filter(Boolean)
+  if (list.length === 0) return ''
+
+  // Parse "First Last" → { first, last }
+  const parsed = list.map(a => {
+    const parts = a.split(' ')
+    const last = parts.pop()
+    const first = parts.join(' ')
+    return { first, last, full: a }
+  })
+
+  if (style === 'apa') {
+    // APA: Last, F. I., Last, F. I., & Last, F. I.
+    const fmt = p => `${p.last}, ${p.first.split(' ').map(n => n[0] + '.').join(' ')}`
+    if (parsed.length === 1) return fmt(parsed[0])
+    if (parsed.length === 2) return `${fmt(parsed[0])}, & ${fmt(parsed[1])}`
+    if (parsed.length <= 20) return parsed.slice(0, -1).map(fmt).join(', ') + ', & ' + fmt(parsed[parsed.length - 1])
+    return parsed.slice(0, 19).map(fmt).join(', ') + ', ... ' + fmt(parsed[parsed.length - 1])
+  }
+
+  if (style === 'mla') {
+    // MLA: Last, First, et al.
+    if (parsed.length === 1) return `${parsed[0].last}, ${parsed[0].first}`
+    if (parsed.length === 2) return `${parsed[0].last}, ${parsed[0].first}, and ${parsed[1].full}`
+    return `${parsed[0].last}, ${parsed[0].first}, et al.`
+  }
+
+  if (style === 'chicago') {
+    // Chicago: Last, First, First Last, and First Last.
+    if (parsed.length === 1) return `${parsed[0].last}, ${parsed[0].first}`
+    if (parsed.length <= 3) return `${parsed[0].last}, ${parsed[0].first}, ` + parsed.slice(1, -1).map(p => p.full).join(', ') + (parsed.length > 2 ? ', ' : '') + `and ${parsed[parsed.length - 1].full}`
+    return `${parsed[0].last}, ${parsed[0].first}, ${parsed[1].full}, ${parsed[2].full}, et al.`
+  }
+
+  if (style === 'vancouver') {
+    // Vancouver: Last FI, Last FI, Last FI.
+    const fmt = p => `${p.last} ${p.first.split(' ').map(n => n[0]).join('')}`
+    if (parsed.length <= 6) return parsed.map(fmt).join(', ')
+    return parsed.slice(0, 6).map(fmt).join(', ') + ', et al'
+  }
+
+  if (style === 'ieee') {
+    // IEEE: F. I. Last, F. I. Last, and F. I. Last
+    const fmt = p => `${p.first.split(' ').map(n => n[0] + '.').join(' ')} ${p.last}`
+    if (parsed.length === 1) return fmt(parsed[0])
+    if (parsed.length === 2) return `${fmt(parsed[0])} and ${fmt(parsed[1])}`
+    return parsed.slice(0, -1).map(fmt).join(', ') + ', and ' + fmt(parsed[parsed.length - 1])
+  }
+
+  return authors // fallback: as-is
+}
+
 // ═══ Formatters ═══
+
 export function formatBib(refs) { return refs.filter(r => !r.error).map(r => r.bib).join('\n\n') }
+
 export function formatNumbered(refs) {
   return refs.filter(r => !r.error).map((r, i) => {
     const p = [`[${i + 1}]`]; if (r.authors) p.push(r.authors + '.'); if (r.title) p.push(r.title + '.')
@@ -332,5 +389,144 @@ export function formatNumbered(refs) {
     if (vp) p.push(vp + '.'); if (r.doi) p.push(`doi:${r.doi}`)
     if (r.arxivId) p.push(`arXiv:${r.arxivId}`)
     return p.join(' ')
+  }).join('\n\n')
+}
+
+// APA 7th: Author, A. B., & Author, C. D. (Year). Title. Journal, Volume(Issue), Pages. https://doi.org/xxx
+export function formatAPA(refs) {
+  return refs.filter(r => !r.error).map(r => {
+    const parts = []
+    parts.push(_authorList(r.authors, 'apa'))
+    parts.push(` (${r.year || 'n.d.'}).`)
+    parts.push(` ${r.title}.`)
+    if (r.journal && r.journal !== 'arXiv preprint') {
+      let j = ` _${r.journal}_`
+      if (r.volume) j += `, _${r.volume}_`
+      if (r.pages) j += `, ${r.pages}`
+      j += '.'
+      parts.push(j)
+    }
+    if (r.doi) parts.push(` https://doi.org/${r.doi}`)
+    else if (r.arxivId) parts.push(` https://arxiv.org/abs/${r.arxivId}`)
+    return parts.join('')
+  }).join('\n\n')
+}
+
+// MLA 9th: Last, First, et al. "Title." Journal, vol. X, no. Y, Year, pp. Pages.
+export function formatMLA(refs) {
+  return refs.filter(r => !r.error).map(r => {
+    const parts = []
+    parts.push(_authorList(r.authors, 'mla') + '.')
+    parts.push(` "${r.title}."`)
+    if (r.journal && r.journal !== 'arXiv preprint') {
+      let j = ` _${r.journal}_`
+      if (r.volume) j += `, vol. ${r.volume}`
+      if (r.year) j += `, ${r.year}`
+      if (r.pages) j += `, pp. ${r.pages}`
+      j += '.'
+      parts.push(j)
+    } else {
+      if (r.year) parts.push(` ${r.year}.`)
+    }
+    if (r.doi) parts.push(` https://doi.org/${r.doi}`)
+    return parts.join('')
+  }).join('\n\n')
+}
+
+// Chicago 17th (Author-Date): Last, First, First Last, and First Last. Year. "Title." Journal Volume (Issue): Pages.
+export function formatChicago(refs) {
+  return refs.filter(r => !r.error).map(r => {
+    const parts = []
+    parts.push(_authorList(r.authors, 'chicago') + '.')
+    parts.push(` ${r.year || 'n.d.'}.`)
+    parts.push(` "${r.title}."`)
+    if (r.journal && r.journal !== 'arXiv preprint') {
+      let j = ` _${r.journal}_`
+      if (r.volume) j += ` ${r.volume}`
+      if (r.pages) j += `: ${r.pages}`
+      j += '.'
+      parts.push(j)
+    }
+    if (r.doi) parts.push(` https://doi.org/${r.doi}`)
+    return parts.join('')
+  }).join('\n\n')
+}
+
+// Vancouver (ICMJE): 1. Last FI, Last FI. Title. Journal. Year;Volume:Pages.
+export function formatVancouver(refs) {
+  return refs.filter(r => !r.error).map((r, i) => {
+    const parts = []
+    parts.push(`${i + 1}. `)
+    parts.push(_authorList(r.authors, 'vancouver') + '.')
+    parts.push(` ${r.title}.`)
+    if (r.journal && r.journal !== 'arXiv preprint') {
+      let j = ` ${r.journal}.`
+      j += ` ${r.year || ''}`
+      if (r.volume) j += `;${r.volume}`
+      if (r.pages) j += `:${r.pages}`
+      j += '.'
+      parts.push(j)
+    } else {
+      if (r.year) parts.push(` ${r.year}.`)
+    }
+    if (r.doi) parts.push(` doi:${r.doi}`)
+    return parts.join('')
+  }).join('\n\n')
+}
+
+// IEEE: [1] F. I. Last, F. I. Last, and F. I. Last, "Title," Journal, vol. X, pp. Pages, Year.
+export function formatIEEE(refs) {
+  return refs.filter(r => !r.error).map((r, i) => {
+    const parts = []
+    parts.push(`[${i + 1}] `)
+    parts.push(_authorList(r.authors, 'ieee'))
+    parts.push(`, "${r.title},"`)
+    if (r.journal && r.journal !== 'arXiv preprint') {
+      parts.push(` _${r.journal}_`)
+      if (r.volume) parts.push(`, vol. ${r.volume}`)
+      if (r.pages) parts.push(`, pp. ${r.pages}`)
+    }
+    if (r.year) parts.push(`, ${r.year}`)
+    parts.push('.')
+    if (r.doi) parts.push(` doi:${r.doi}`)
+    return parts.join('')
+  }).join('\n\n')
+}
+
+// ═══ Export Formats ═══
+
+// RIS (EndNote / RefMan compatible)
+export function formatRIS(refs) {
+  return refs.filter(r => !r.error).map(r => {
+    const L = ['TY  - JOUR']
+    if (r.title) L.push(`TI  - ${r.title}`)
+    if (r.authors) r.authors.split(', ').forEach(a => L.push(`AU  - ${a}`))
+    if (r.year) L.push(`PY  - ${r.year}`)
+    if (r.journal) L.push(`JO  - ${r.journal}`)
+    if (r.volume) L.push(`VL  - ${r.volume}`)
+    if (r.pages) { const [sp, ep] = r.pages.split('-'); L.push(`SP  - ${sp}`); if (ep) L.push(`EP  - ${ep}`) }
+    if (r.doi) L.push(`DO  - ${r.doi}`)
+    if (r.url) L.push(`UR  - ${r.url}`)
+    if (r.abstract) L.push(`AB  - ${r.abstract}`)
+    if (r.publisher) L.push(`PB  - ${r.publisher}`)
+    L.push('ER  - ')
+    return L.join('\n')
+  }).join('\n\n')
+}
+
+// RefWorks Tagged Format
+export function formatRefWorks(refs) {
+  return refs.filter(r => !r.error).map(r => {
+    const L = ['RT Journal Article']
+    if (r.title) L.push(`T1 ${r.title}`)
+    if (r.authors) r.authors.split(', ').forEach(a => L.push(`A1 ${a}`))
+    if (r.year) L.push(`YR ${r.year}`)
+    if (r.journal) L.push(`JF ${r.journal}`)
+    if (r.volume) L.push(`VO ${r.volume}`)
+    if (r.pages) L.push(`SP ${r.pages}`)
+    if (r.doi) L.push(`DO ${r.doi}`)
+    if (r.url) L.push(`UL ${r.url}`)
+    if (r.abstract) L.push(`AB ${r.abstract}`)
+    return L.join('\n')
   }).join('\n\n')
 }

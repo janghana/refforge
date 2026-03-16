@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { classify, fetchByDOI, fetchByArxiv, fetchByTitle, formatBib, formatNumbered } from './api'
+import { classify, fetchByDOI, fetchByArxiv, fetchByTitle, formatBib, formatNumbered, formatAPA, formatMLA, formatChicago, formatVancouver, formatIEEE, formatRIS, formatRefWorks } from './api'
 import * as store from './store'
 import './index.css'
 
@@ -282,7 +282,18 @@ export default function App() {
   const sN = statuses.filter(s => s === 'done').length
   const eN = statuses.filter(s => s === 'error').length
 
-  const output = mode === 'bib' ? formatBib(valid) : formatNumbered(valid)
+  const FORMATS = {
+    bib: { label: 'BibTeX', fn: formatBib, ext: '.bib' },
+    numbered: { label: '[1] Numbered', fn: formatNumbered, ext: '.txt' },
+    apa: { label: 'APA', fn: formatAPA, ext: '.txt' },
+    mla: { label: 'MLA', fn: formatMLA, ext: '.txt' },
+    chicago: { label: 'Chicago', fn: formatChicago, ext: '.txt' },
+    vancouver: { label: 'Vancouver', fn: formatVancouver, ext: '.txt' },
+    ieee: { label: 'IEEE', fn: formatIEEE, ext: '.txt' },
+    ris: { label: 'RIS (EndNote)', fn: formatRIS, ext: '.ris' },
+    refworks: { label: 'RefWorks', fn: formatRefWorks, ext: '.txt' },
+  }
+  const output = (FORMATS[mode]?.fn || formatBib)(valid)
 
   // ─── Actions ───
   const createProject = (name) => { store.createProject(name); refresh() }
@@ -323,7 +334,7 @@ export default function App() {
   }, [input, activeId])
 
   const cp = () => { navigator.clipboard.writeText(output); setCopied(true); setTimeout(() => setCopied(false), 1800) }
-  const dl = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([output], { type: 'text/plain' })); a.download = mode === 'bib' ? `${activeProject?.name || 'refs'}.bib` : `${activeProject?.name || 'refs'}.txt`; a.click() }
+  const dl = () => { const ext = FORMATS[mode]?.ext || '.txt'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([output], { type: 'text/plain' })); a.download = `${activeProject?.name || 'refs'}${ext}`; a.click() }
   const drop = e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) { const r = new FileReader(); r.onload = ev => setInput(ev.target.result); r.readAsText(f) } }
 
   const ST = {
@@ -429,14 +440,14 @@ export default function App() {
             {valid.length > 0 && (
               <div style={{ ...ST.card, padding: '14px 18px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
-                  <div style={ST.tog}>
-                    {[{ k: 'bib', l: 'BibTeX' }, { k: 'numbered', l: '[1] Numbered' }].map(({ k, l }) => (
-                      <button key={k} onClick={() => setMode(k)} style={{ padding: '4px 12px', border: 'none', borderRadius: 5, fontFamily: 'inherit', fontSize: 11, fontWeight: mode === k ? 600 : 400, color: mode === k ? '#2563eb' : '#64748b', background: mode === k ? 'white' : 'transparent', cursor: 'pointer', boxShadow: mode === k ? '0 1px 3px rgba(0,0,0,0.05)' : 'none' }}>{l}</button>
+                  <div style={{ ...ST.tog, flexWrap: 'wrap', gap: 1 }}>
+                    {Object.entries(FORMATS).map(([k, { label }]) => (
+                      <button key={k} onClick={() => setMode(k)} style={{ padding: '4px 10px', border: 'none', borderRadius: 5, fontFamily: 'inherit', fontSize: 10, fontWeight: mode === k ? 600 : 400, color: mode === k ? '#2563eb' : '#64748b', background: mode === k ? 'white' : 'transparent', cursor: 'pointer', boxShadow: mode === k ? '0 1px 3px rgba(0,0,0,0.05)' : 'none', whiteSpace: 'nowrap' }}>{label}</button>
                     ))}
                   </div>
                   <div style={{ display: 'flex', gap: 5 }}>
                     <button onClick={cp} style={{ padding: '4px 10px', borderRadius: 5, fontFamily: 'inherit', fontSize: 10, fontWeight: 500, cursor: 'pointer', background: copied ? '#dcfce7' : '#f1f5f9', color: copied ? '#16a34a' : '#475569', border: `1px solid ${copied ? '#bbf7d0' : '#e2e8f0'}` }}>{copied ? '✓' : 'Copy'}</button>
-                    <button onClick={dl} style={{ padding: '4px 10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 5, fontFamily: 'inherit', fontSize: 10, fontWeight: 500, cursor: 'pointer' }}>↓ {mode === 'bib' ? '.bib' : '.txt'}</button>
+                    <button onClick={dl} style={{ padding: '4px 10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 5, fontFamily: 'inherit', fontSize: 10, fontWeight: 500, cursor: 'pointer' }}>↓ {FORMATS[mode]?.ext || '.txt'}</button>
                   </div>
                 </div>
                 <pre style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: 1.65, fontFamily: "'IBM Plex Mono',monospace", overflow: 'auto', flex: 1, minHeight: 200, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#334155', margin: 0 }}>{output}</pre>
